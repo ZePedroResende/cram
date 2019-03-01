@@ -1,4 +1,0 @@
-message Message {
-  required string tag = 1;
-  required string info = 2;
-}

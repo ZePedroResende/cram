@@ -13,7 +13,6 @@ fn main() {
 
 fn test1(){
 
-    
     let my_ram = ram::Ram::new(1101);
     
     let context =  Arc::new(Mutex::new(zmq::Context::new()));
