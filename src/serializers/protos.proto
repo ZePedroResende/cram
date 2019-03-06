@@ -1,0 +1,11 @@
+
+// To install pb-rs 
+    // cargo install pb-rs 
+
+// To generate .rs file from proto file
+    // pb-rs src/protos.proto 
+
+message LabelMessage{
+    required string label = 1;
+    required bytes msg  = 2;
+}
