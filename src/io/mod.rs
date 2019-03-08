@@ -29,7 +29,7 @@ impl Io{
         self.reader.read()
     }
 
-    pub fn broadcast(self, msg : Vec<u8>){
+    pub fn broadcast(&self, msg : Vec<u8>){
         self.writer.broadcast(msg);
     }
 

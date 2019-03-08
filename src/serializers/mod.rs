@@ -1,8 +1,10 @@
 mod protos;
+
 use protos::LabelMessage;
 
 use std::borrow::Cow;
 use quick_protobuf::{deserialize_from_slice, serialize_into_vec};
+
 
 
 pub fn deserialize_label_message( bytes : &Vec<u8> ) -> ( String, Vec<u8>){
@@ -20,11 +22,11 @@ pub fn serialize_label_message( label : &String, msg : &Vec<u8>) -> Vec<u8>{
     serialize_into_vec( &new_message).expect("Cannot write message!")    
 }
 
-pub fn putType( message_type : i8,  bytes : &mut Vec<u8>){
+pub fn put_type( message_type : i8,  bytes : &mut Vec<u8>){
      bytes.insert(0, message_type as u8)
 }
 
-pub fn getType( bytes : &Vec<u8>) -> (i8,Vec<u8>) {
+pub fn get_type( bytes : &Vec<u8>) -> (i8,Vec<u8>) {
     let (my_type, msg) = bytes.split_first().unwrap();
     (*my_type as i8, msg.to_vec())
 }
