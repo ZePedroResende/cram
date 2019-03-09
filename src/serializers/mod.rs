@@ -26,8 +26,8 @@ pub fn put_type( message_type : i8,  bytes : &mut Vec<u8>){
      bytes.insert(0, message_type as u8)
 }
 
-pub fn get_type( bytes : &Vec<u8>) -> (i8,Vec<u8>) {
+pub fn get_type( bytes : &Vec<u8>) -> (Vec<u8>, i8) {
     let (my_type, msg) = bytes.split_first().unwrap();
-    (*my_type as i8, msg.to_vec())
+    (msg.to_vec(), *my_type as i8,)
 }
 

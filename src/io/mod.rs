@@ -5,7 +5,7 @@ use writer::Writer;
 use reader::Reader;
 
 use std::sync::{Arc, Mutex};
-
+use crate::serializers::*;
 
 pub struct Io{
     reader : Reader,    
@@ -25,15 +25,19 @@ impl Io{
         }
     }
 
-    pub fn read(self) -> Vec<u8> {
-        self.reader.read()
+    
+    pub fn read(self) -> (Vec<u8>,i8) {
+        get_type( &self.reader.read())
+    }
+    
+
+    pub fn send(&self, address : String, msg : &Vec<u8>, msg_type : i8 ){
+        let mut msg_clone = msg.to_vec();
+        put_type( msg_type, &mut msg_clone);
+        self.writer.send(address, msg_clone);
     }
 
-    pub fn broadcast(&self, msg : Vec<u8>){
-        self.writer.broadcast(msg);
-    }
-
-    pub fn add_connection(&self, address : String){
-        self.writer.add_connection(address);
+    pub fn close_all(&self){
+        self.writer.close_all();
     }
 }
