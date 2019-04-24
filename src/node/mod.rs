@@ -5,25 +5,28 @@ use io::Io;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-pub struct Node<'a> {
+pub struct Node {
     io: Io,
-    controllers: HashMap<i8, Controller<'a>>,
+    controllers: HashMap<i8, Box<Controller + 'static>>,
 }
 
-impl<'a> Node<'a> {
-    fn new(port: i32) -> Node<'a> {
+impl Node {
+    pub fn new(port: i32) -> Node {
         Node {
             io: Io::new(port),
             controllers: HashMap::new(),
         }
     }
 
-    fn add_contoller(&mut self, type_flag: i8, controller: Controller<'a>) {
+    pub fn add_contoller<T>(&mut self, type_flag: i8, controller: Box<T>)
+    where
+        T: Controller + 'static,
+    {
         self.controllers.insert(type_flag, controller);
     }
 
-    fn start(&mut self) {
+    pub fn start(&mut self) {
         let msg = self.io.read();
-        self.controllers.get(&msg.1).unwrap().handle(msg);
+        self.controllers.get(&msg.1).unwrap().call(&msg.0);
     }
 }
