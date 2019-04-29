@@ -1,11 +1,8 @@
 
-pub mod SimpleController;
-pub mod LabelController;
- 
+pub mod simple_controller;
+pub mod label_controller;
 
-pub trait Controller{
-    
-    fn get_message(&self) ->  ( Vec<u8>, String);
-        
-    fn call(&self, message : &Vec<u8>) -> ();
-} 
+use crossbeam::Sender;
+
+
+pub trait Controller{} 
