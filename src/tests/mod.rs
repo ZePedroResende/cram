@@ -1,17 +1,6 @@
-
-use crate::*;
-use crate::node;
-
-use crate::node::io::Io;
 use crate::serializers::*;
-use crate::node::controller::simple_controller::SimpleController;
 use crate::node::*;
-
-use crossbeam::Receiver;
-use crossbeam::Sender;
 use crossbeam::crossbeam_channel::unbounded;
-use std::collections::HashMap;
-
 
 #[test]
 fn test_serializers(){
@@ -26,7 +15,6 @@ fn test_serializers(){
     
     
     // desserialize // 
-
     let my_type_res = get_type( &mut bytes);
     let (label_res, msg_res) = deserialize_label_message( &bytes );
 
@@ -35,47 +23,43 @@ fn test_serializers(){
     assert_eq!( label, label_res);
 
     assert_eq!( my_type, my_type_res);
-
-
 }
 
 
 #[test]
-fn test_io() {
+fn test_controller(){
     
-    let port1 = 11101;
-    let port2 = 11102;
+    let (s1,r1) = unbounded();
+    let (s2,r2) = unbounded();
+    let (s3,r3) = unbounded();
 
-    let io1 = Io::new(port1);
-    let io2 = Io::new(port2);
+    let h1 = move |v:Vec<u8>| { s1.send(v.clone()).unwrap(); };
+    let h2 = move |v:Vec<u8>| { s2.send(v.clone()).unwrap(); };
+    let h3 = move |v:Vec<u8>| { s3.send(v.clone()).unwrap(); };
 
-    let msg = "ola mundo";
+    let node =  Builder::new(11101)
+                    .set_simple_controller(h1)
+                    .set_label_controller(h2)
+                    .add_label_handler("label".to_string(), h3)
+                    .build(3);
+        
+    let vec_1 = "my first message".as_bytes().to_vec();
+    let vec_2 = "another message".as_bytes().to_vec();
+    let vec_3 = "random message".as_bytes().to_vec();
+    let vec_4 = "last message".as_bytes().to_vec();
+
+
+    node.send( vec_1.clone(),  "localhost:11101".to_string());     
     
-    io1.get_input_channel().send(( msg.as_bytes().to_vec(), format!("localhost:{}", port2))).unwrap();
+    node.send( vec_2.clone(), "localhost:11101".to_string()); 
     
-    let (result,_) = io2.get_output_channel().recv().unwrap();
-
-    assert_eq!( msg.as_bytes().to_vec(), result ); 
-}
-
-#[test]
-fn test_simple_controller() {
-    let (s,r) : (Sender<Vec<u8>>,Receiver<Vec<u8>>)= unbounded();
+    node.send_with_label( vec_3.clone(), "label".to_string(), "localhost:11101".to_string());
     
-    let s_clone = s.clone();
-    
-    let func = move |vec : &Vec<u8>| s_clone.send((*vec).clone()).unwrap();
+    node.send_with_label( vec_4.clone(), "randomLabel".to_string(), "localhost:11101".to_string());
 
-    let io = Io::new(11103);
 
-    let sc = SimpleController::new( func, io.get_input_channel());
-    
-    let mut map = HashMap::new();
-    map.insert(0,sc.get_input_channel());
-    
-    node::dispatcher::start_dispatcher( map, io.get_output_channel() );
-
-    sc.reply( "ola mundo".as_bytes().to_vec(), "localhost:11103".to_string());
-
-    assert_eq!( "ola mundo".as_bytes().to_vec() , r.recv().unwrap() );
+    assert_eq!( r1.recv(), Ok(vec_1) );  
+    assert_eq!( r1.recv(), Ok(vec_2) );  
+    assert_eq!( r3.recv(), Ok(vec_3) );  
+    assert_eq!( r2.recv(), Ok(vec_4) );  
 }
