@@ -8,7 +8,7 @@ use quick_protobuf::{deserialize_from_slice, serialize_into_vec};
 
 
 pub fn deserialize_label_message( bytes : &Vec<u8> ) -> ( String, Vec<u8>){
-    let message : LabelMessage = deserialize_from_slice(&bytes).expect("Cannot write message!");
+    let message : LabelMessage = deserialize_from_slice(&bytes).expect("Cannot read message!");
     (message.label.to_string(), message.msg.iter().cloned().collect(), )
 }
 
