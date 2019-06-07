@@ -54,10 +54,5 @@ impl Label {
         }
     }
 
-    pub fn add_handler<F>(&mut self,  label : String, fun : F) -> () 
-    where  F : Fn(Vec<u8>) + Send + Sync + 'static {
-        self.map.insert( label, Arc::new(Box::new( fun)));
-    }
-
 }
 

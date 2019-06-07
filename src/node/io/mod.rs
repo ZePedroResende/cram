@@ -1,6 +1,8 @@
+#![allow(dead_code)]
+
 mod dns;
 
-use crate::node::configuration::Configuration;
+use crate::node::Node;
 use crossbeam::Receiver;
 use std::collections::HashMap;
 use std::thread;
@@ -11,21 +13,31 @@ use crate::serializers::*;
 pub struct Io { 
     input_channel : Receiver<(i8,Vec<u8>,String)>,
     port : usize,
-    dns : Dns,
+    option_dns : Option<Dns>,
 }
 
 impl Io {
-
+    
     pub fn new(port: usize, input_channel: Receiver<(i8,Vec<u8>,String)> ) -> Io {
         
         Io {
             input_channel : input_channel,
             port : port,
-            dns : Dns::new(),
+            option_dns : None,
         }
     }
 
-    pub fn start(self, config : Configuration){
+    pub fn new_with_dns(port: usize, input_channel: Receiver<(i8,Vec<u8>,String)>, dns_path : String ) -> Io {
+        
+        Io {
+            input_channel : input_channel,
+            port : port,
+            option_dns : Some( Dns::new(dns_path)),
+        }
+    }
+
+
+    pub fn start(mut self, node : Node){
 
         let context = zmq::Context::new();
                 
@@ -39,10 +51,7 @@ impl Io {
 
             let message_type = get_type(&mut vec);
             
-            // falta ir buscar o sitio onde veio a mnesagem
-            // e traduzir o nome 
-            
-            match config.controllers.get(&message_type){
+            match node.controllers.get(&message_type){
                 None => (),
                 Some(c) => c.send( vec ).unwrap(),
             };
@@ -53,16 +62,22 @@ impl Io {
             let mut push_sockets : HashMap<String, zmq::Socket> = HashMap::new();
 
             loop {
-                let (controller_type,mut vec, mut to) = self.input_channel.recv().unwrap();
+                let (controller_type, mut vec, mut to) = self.input_channel.recv().unwrap();
 
                 put_type( controller_type, &mut vec);
 
-                match self.dns.get_address(&to) {
-                    Some(addr) => 
-                        to =  addr,
-                    None => (),
+                self.option_dns = match self.option_dns{
+                    None => None,
+                    Some(dns) =>{
+                        match dns.get_address(&to) {
+                            Some(addr) => 
+                                to =  addr,
+                            None => (),
+                        };
+                        Some(dns)
+                    }
                 };
-
+                
                 if !push_sockets.contains_key(&to) {
                     let sck = context.socket(zmq::PUSH).unwrap();
                     sck.connect(&format!("tcp://{}", to)).unwrap();

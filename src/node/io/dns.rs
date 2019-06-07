@@ -3,18 +3,18 @@ use std::fs;
 
 pub struct Dns{
     id_to_address : HashMap<String, String>,
-    address_to_id : HashMap<String, String>,
+    _address_to_id : HashMap<String, String>,
 } 
 
 impl Dns{
-    pub fn new() -> Dns{
+    pub fn new( dns_path : String) -> Dns{
        
         let mut address_to_id = HashMap::new();
         let mut id_to_address = HashMap::new();
 
         // load file 
 
-        let contents = fs::read_to_string("./src/dns.txt")
+        let contents = fs::read_to_string(dns_path)
             .expect("Something went wrong reading the file");
         
         let mut lines= contents.lines();
@@ -34,18 +34,14 @@ impl Dns{
         }   
 
         Dns{
-            address_to_id : address_to_id,
+            _address_to_id : address_to_id,
             id_to_address : id_to_address,
         }
     }
 
-    pub fn get_id(&self, address : &String) -> Option<String>{
-        self.address_to_id.get(address).cloned()
-    }
 
     pub fn get_address(&self, id : &String) -> Option<String>{
        self.id_to_address.get(id).cloned()
     }
 
 }
-
