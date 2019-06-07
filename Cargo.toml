@@ -1,8 +1,11 @@
 [package]
-name = "trabalho"
+name = "ram"
 version = "0.1.0"
-authors = ["jgo <joaquim.mgo.97@gmail.com>"]
+authors = ["Portuguese anecdote Developers"]
 edition = "2018"
+licence = "MIT"
+repository = "https://gitlab.com/ram-project/ram/"
+categories = ["communication", "middleware","distributed-systems"]
 
 [dependencies]
 zmq = "0.8"
