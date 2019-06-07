@@ -1,8 +1,6 @@
 use std::sync::Arc;
-use crossbeam::crossbeam_channel::unbounded;
-use crossbeam::{Receiver,Sender};
+use crossbeam::crossbeam_channel::{unbounded,Sender};
 use std::boxed::Box;
-
 
 
 /// /// info to send to about stateful or stateless /// ///
@@ -72,9 +70,6 @@ impl ThreadMessage{
 }
 
 pub struct ThreadPool{
-    pool : threadpool::ThreadPool,
-    num_threads : usize,
-    thread_channel : Receiver<ThreadMessage>,
     input_channel : Sender<ThreadMessage>,
 }
 
@@ -85,18 +80,18 @@ impl ThreadPool{
         
         let pool = threadpool::ThreadPool::new(num_threads);
         
-        for _ in 1..num_threads{
+        for _ in 0..num_threads{
         
             let recv = r.clone();
         
-            pool.execute(move || loop{
-        
-                let th_message : ThreadMessage= recv.recv().unwrap();
-             
+            pool.execute(move || loop {
+                
+                let th_message : ThreadMessage = recv.recv().unwrap();
+
                 if th_message.is_stateless(){
                     let info = th_message.get_stateless().unwrap();
                     (info.fun)(info.message); 
-        
+    
                 }else{
                     let info = th_message.get_stateful().unwrap();
                     let mut f = info.fun;
@@ -107,19 +102,12 @@ impl ThreadPool{
         }
 
         ThreadPool{
-            pool : pool,
-            num_threads : num_threads,
             input_channel : s,
-            thread_channel : r,
         } 
     }
 
     pub fn get_sender(&self) -> Sender<ThreadMessage>{
         self.input_channel.clone()
-    }
-
-    pub fn join(&self){
-        self.pool.join()
     }
 
 }
