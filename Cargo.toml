@@ -1,16 +1,15 @@
 [package]
-name = "ram"
+name = "cram"
 version = "0.1.0"
 authors = ["Portuguese anecdote Developers"]
 edition = "2018"
-licence = "MIT"
+license = "MIT"
 repository = "https://gitlab.com/ram-project/ram/"
 categories = ["communication", "middleware","distributed-systems"]
+description = "Cram realy awesome middleware"
 
 [dependencies]
 zmq = "0.8"
-quick-protobuf = "0.6.2"
-pb-rs = "0.7.0"
-spmc = "0.2.2"
 crossbeam = "0.7"
 threadpool = "1.7.1"
+queue = "0.3.0"

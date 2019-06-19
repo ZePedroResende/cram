@@ -32,7 +32,7 @@ impl Label {
 
             let vec =  self.input_channel.recv().unwrap();
 
-            let (label,msg) = deserialize_label_message(&vec);
+            let (label,msg) = deserialize_label_message(vec);
             
             match self.map.get(&label) {
                 None => {

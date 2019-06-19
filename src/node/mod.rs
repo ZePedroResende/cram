@@ -27,11 +27,14 @@ pub struct Builder{
     list_mut : Vec< (String, Box<FnMut(Vec<u8>) + Send + Sync + 'static>)>,
 
     configuration : Node,
+
+    has_controllers : bool,
 }
 
 
 pub struct Node{
-    pub io :  Sender<( i8, Vec<u8>, String) >,
-    pub controllers : HashMap< i8, Sender< Vec<u8> > >,
+    io :  Sender<( i8, Vec<u8>, String) >,
+    io_port : usize,
+    controllers : HashMap< i8, Sender< Vec<u8> > >,
 }
 

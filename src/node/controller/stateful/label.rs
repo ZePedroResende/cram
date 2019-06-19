@@ -4,6 +4,7 @@ use std::thread;
 use std::vec::Vec;
 use crossbeam::crossbeam_channel::{unbounded, Select};
 use crossbeam::{Receiver,Sender};
+use queue::Queue;
 use crate::serializers::*;
 use crate::node::thread_pool::ThreadMessage;
 
@@ -24,7 +25,7 @@ impl Label {
             fn_receiver : r,
             fn_sender : s,
             
-            queue : HashMap::new(),
+            queue_by_label : HashMap::new(),
         }
     }
     
@@ -32,10 +33,10 @@ impl Label {
     pub fn start( mut self, thread_pool_channel : Sender<ThreadMessage>){
         
         // initialize queue
-        self.queue.insert(None, Vec::new());
+        self.queue_by_label.insert(None, Queue::new());
 
         for k in self.map.keys(){
-            self.queue.insert( Some(k.clone()), Vec::new() );
+            self.queue_by_label.insert( Some(k.clone()), Queue::new());
         }
         
         let fn_receiver_cloned = self.fn_receiver.clone();
@@ -51,24 +52,22 @@ impl Label {
                 let index = sel.ready();
                 match index {
                     0 => {
+                        // From threadPool
                         let res = self.fn_receiver.try_recv();
                         if let Err(e) = res {
-                            if e.is_empty() {
-                                continue;
-                            }
+                            if e.is_empty() { continue; }
                         }
                         let (option_label, f) = res.unwrap();
                         self.receive_handler(thread_pool_channel.clone(), option_label, f);
                     },
                     1 => {
+                        // From outside 
                         let res = self.input_channel.try_recv();
                         if let Err(e) = res {
-                            if e.is_empty() {
-                                continue;
-                            }
+                            if e.is_empty() { continue; }
                         }
                         let vec = res.unwrap();
-                        let (label,msg) = deserialize_label_message(&vec);
+                        let (label,msg) = deserialize_label_message(vec);
 
                         match self.map.remove(&label) {
                             None => {
@@ -78,7 +77,7 @@ impl Label {
                                         self.default_fun = None;
                                     }
                                     None =>{
-                                        self.queue.get_mut(&None).unwrap().push(msg);
+                                        self.queue_by_label.get_mut(&None).unwrap().queue(msg).unwrap();
                                     }
                                 }
                             },
@@ -90,7 +89,7 @@ impl Label {
                                     },
                                     None =>{
                                         self.map.insert( label.clone(), None);  
-                                        self.queue.get_mut(&Some(label)).unwrap().push( msg );                        
+                                        self.queue_by_label.get_mut(&Some(label)).unwrap().queue( msg ).unwrap();                        
                                     }
                                 }
                             },
@@ -104,7 +103,7 @@ impl Label {
     }
 
     fn receive_handler(&mut self , thread_pool_channel : Sender<ThreadMessage>, option_label : Option<String>, fun : Box<FnMut(Vec<u8>) + Send + Sync + 'static>){
-        let optional_vec = self.queue.get_mut(&option_label).unwrap().pop();
+        let optional_vec = self.queue_by_label.get_mut(&option_label).unwrap().dequeue();
 
         match option_label {
             None =>
