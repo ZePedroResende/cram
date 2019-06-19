@@ -165,6 +165,75 @@ fn test_data_workflow(){
 }
 
 #[test]
+fn test_network(){
+    
+    let multiply;
+    let divide;
+    let add;
+
+    let node_builder_1 = Builder::new(9997);
+    let node_builder_2 = Builder::new(9998);
+    let node_builder_3 = Builder::new(9999);
+
+    let (s1,r1) = unbounded();
+
+    {
+        let node_config = node_builder_1.get_shallow_node();
+        multiply = move |v : Vec<u8>|{
+            let message = String::from_utf8(v.clone()).unwrap();
+            let int : i32 = message.parse().unwrap();
+            let result = int * 4;
+            node_config.send( result.to_string().as_bytes().to_vec(), "localhost:9998".to_string() ); 
+        };
+    }
+    {
+        let node_config = node_builder_2.get_shallow_node();
+        divide = move |v : Vec<u8>|{            
+            let message = String::from_utf8(v).unwrap();
+            let int : i32 = message.parse().unwrap();
+            let result = int / 2;
+            node_config.send( result.to_string().as_bytes().to_vec(), "localhost:9999".to_string() ); 
+        };
+    }
+    {
+        add = move |v : Vec<u8>|{
+            let message = String::from_utf8(v.clone()).unwrap();
+            let int : i32 = message.parse().unwrap();
+            let result = int + 10;
+            s1.send(result.to_string().as_bytes().to_vec().clone()).unwrap();
+        };
+    }
+
+    let node_1 =  node_builder_1.set_simple_controller(multiply)
+                    .build(1);
+    
+    let _ =  node_builder_2.set_simple_controller(divide)
+                .build(1);
+
+    let _ =  node_builder_3.set_simple_controller(add)
+                .build(1);
+        
+    let vec_1 = "2".as_bytes().to_vec();
+    let vec_2 = "3".as_bytes().to_vec();
+    let vec_3 = "4".as_bytes().to_vec();
+    let vec_4 = "5".as_bytes().to_vec();
+
+    node_1.send( vec_1.clone(),  "localhost:9997".to_string());     
+    
+    node_1.send( vec_2.clone(), "localhost:9997".to_string()); 
+    
+    node_1.send( vec_3.clone(), "localhost:9997".to_string());
+    
+    node_1.send( vec_4.clone(), "localhost:9997".to_string());
+
+
+    assert_eq!( r1.recv(), Ok( (((2*4)/2)+10).to_string().as_bytes().to_vec() ) );  
+    assert_eq!( r1.recv(), Ok( (((3*4)/2)+10).to_string().as_bytes().to_vec() ) );  
+    assert_eq!( r1.recv(), Ok( (((4*4)/2)+10).to_string().as_bytes().to_vec() ) );  
+    assert_eq!( r1.recv(), Ok( (((5*4)/2)+10).to_string().as_bytes().to_vec() ) );
+}
+
+#[test]
 fn test_mut_label(){
 
     let (s,r) = unbounded();
