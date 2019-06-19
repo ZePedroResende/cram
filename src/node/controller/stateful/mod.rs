@@ -1,7 +1,7 @@
 use crossbeam::Sender;
 use std::collections::HashMap;
 use crossbeam::Receiver;
-
+use queue::Queue;
 
 pub mod simple;
 pub mod label;
@@ -19,7 +19,7 @@ pub struct Label {
     
     fn_sender : Sender< (Option<String>,Box<FnMut(Vec<u8>) + Send + Sync + 'static>) >,
 
-    queue : HashMap< Option<String>, Vec< Vec<u8> > >,
+    queue_by_label : HashMap< Option<String>, Queue< Vec<u8> > >,
 
 }
 

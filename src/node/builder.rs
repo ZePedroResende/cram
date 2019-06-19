@@ -3,16 +3,14 @@ use super::Node;
 use super::io::Io;
 use super::controller::{stateful,stateless};
 use super::thread_pool::ThreadPool;
-
 use crossbeam::crossbeam_channel::{unbounded};
 
 impl Builder{
-
     pub fn new( port : usize)-> Builder {
         let (s,r) = unbounded();
 
         let io = Io::new( port, r);
-        let config = Node::new(s);
+        let config = Node::new(port, s);
 
         Builder {
             io : io,
@@ -23,22 +21,42 @@ impl Builder{
             list : Vec::new(),
             list_mut : Vec::new(),
             configuration : config,
+            has_controllers : false,
         }
     }
 
+    pub fn new_with_dns( port : usize, dns_path : String)-> Builder {
+        let (s,r) = unbounded();
+
+        let io = Io::new_with_dns(port, r, dns_path);
+        let config = Node::new(port, s);
+
+        Builder {
+            io : io,
+            simple_controller : None,
+            simple_controller_mut : None,
+            label_controller : None,
+            label_controller_mut : None,
+            list : Vec::new(),
+            list_mut : Vec::new(),
+            configuration : config,
+            has_controllers : false,
+        }
+    }
     pub fn get_shallow_node(&self) -> Node{
         self.configuration.clone()
     }
 
     pub fn set_simple_controller<F>(mut self,  func :  F ) -> Builder
     where F  : Fn(Vec<u8>) + Send + Sync + 'static{
-     
+        
         let (s,r) = unbounded();
 
         self.simple_controller = Some( stateless::Simple::new(func, r));
         self.simple_controller_mut = None;
 
         self.configuration.controllers.insert(0,s);
+        self.has_controllers = true;
         self
     }
 
@@ -51,6 +69,7 @@ impl Builder{
         self.simple_controller = None;
 
         self.configuration.controllers.insert(0,s);
+        self.has_controllers = true;
         self
     }
 
@@ -63,6 +82,7 @@ impl Builder{
         self.label_controller_mut = None;
      
         self.configuration.controllers.insert(1,s);
+        self.has_controllers = true;
         self
     }
     
@@ -75,6 +95,7 @@ impl Builder{
         self.label_controller = None;
 
         self.configuration.controllers.insert(1,s);
+        self.has_controllers = true;
         self
     }
     
@@ -91,6 +112,11 @@ impl Builder{
     }
     
     pub fn build(self, num_threads : usize) -> Node {
+        
+        if ! self.has_controllers {
+            self.io.start(self.configuration.clone());
+            return self.configuration;
+        }
         
         let pool = ThreadPool::new(num_threads);
         

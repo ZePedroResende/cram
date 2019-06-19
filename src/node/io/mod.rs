@@ -36,7 +36,6 @@ impl Io {
         }
     }
 
-
     pub fn start(mut self, node : Node){
 
         let context = zmq::Context::new();

@@ -2,25 +2,24 @@
 
 use crate::serializers::*;
 use crate::node::{Builder};
-use crossbeam::crossbeam_channel::{ RecvError, Select,unbounded};
-use std::{thread, time};
-use std::str;
+use crossbeam::crossbeam_channel::unbounded;
 
 #[test]
 fn test_serializers(){
     
     let label : String = String::from("Ola");
-    let msg : Vec<u8> =  b" mundo lindo".to_vec();
+
+    let msg : Vec<u8> =  "mundo lindo".as_bytes().to_vec();
     let my_type : i8 = 2;
     
     // Serialize // 
-    let mut bytes = serialize_label_message( &label ,&msg);
+    let mut bytes = serialize_label_message( label.clone() ,msg.clone());
     put_type( my_type, &mut bytes);
     
     
     // desserialize // 
     let my_type_res = get_type( &mut bytes);
-    let (label_res, msg_res) = deserialize_label_message( &bytes );
+    let (label_res, msg_res) = deserialize_label_message(  bytes );
 
     assert_eq!( msg, msg_res);
 
@@ -28,7 +27,6 @@ fn test_serializers(){
 
     assert_eq!( my_type, my_type_res);
 }
-
 
 #[test]
 fn test_controller(){
@@ -75,68 +73,58 @@ fn test_mut_controller(){
     
     let (s,r) = unbounded();
     
-    let ns = s.clone();
-    
     let h = move |v:Vec<u8>| { 
-        id += 1;
         let mut message = id.to_string().as_bytes().to_vec();
-    
+        id += 1;
         let mut clone = v.clone();
-        message.append( &mut " - ".as_bytes().to_vec());
-        message.append(  &mut clone );
+        message.append( &mut "-".as_bytes().to_vec());
+        message.append( &mut clone );
     
-        ns.send( message ).unwrap();
+        s.send( message ).unwrap();
     };  
 
 
-    let node = Builder::new(3031)
+    let node = Builder::new_with_dns(3031, "./src/tests/dns.txt".to_string())
             .set_simple_controller_mut(h)
             .build(1);
 
-
-
     let message = "ola mundo".as_bytes().to_vec();
 
-    for _i in 1..5{
+    for _i in 0..4 {
         node.send( message.clone(), "me".to_string() );
     }
 
-    thread::sleep(time::Duration::from_millis(100));
-
-    loop{
-        match r.try_recv(){
-            Ok(v) => {
-                println!(" {:?}",  str::from_utf8(&v).unwrap() );            
-            },
-            Err(_e) => 
-                break,
-        }
-    }    
+    for i in 0..4 {
+        let v = r.recv().unwrap();
+        assert_eq!(v, format!("{}-ola mundo", i).as_bytes().to_vec() );
+    }
 
 }
 
-
 #[test]
-fn new_test(){
+fn test_data_workflow(){
 
     let node_builder = Builder::new(11103);
-    let simple;
+    let counter;
     let upper;
     let duplicate;
     let default;
+    
+    let (s,r) = unbounded();
 
     {
         let node_config = node_builder.get_shallow_node();
         let mut count = 0;
-        simple = move |v : Vec<u8>|{
+        counter = move |mut v : Vec<u8>|{
+            let mut message = count.to_string().as_bytes().to_vec();
             count += 1; 
-            println!("receive message {} : {:?}", count, str::from_utf8(&v).unwrap());
-            node_config.send_with_label( v, "upper".to_string(), "localhost:11103".to_string() ); 
+            message.append(&mut v);
+            node_config.send_with_label( message, "upper".to_string(), "localhost:11103".to_string() ); 
         };
     }
     {
         let node_config = node_builder.get_shallow_node();
-        upper = move |v : Vec<u8>|{
+        upper = move |v : Vec<u8>|{            
             let message = String::from_utf8(v).unwrap().to_uppercase();
             node_config.send_with_label( message.as_bytes().to_vec(), "duplicate".to_string(), "localhost:11103".to_string() ); 
         };
@@ -150,94 +138,64 @@ fn new_test(){
     }
 
     default = move | v : Vec<u8>|{
-        println!("Complete : {:?}", str::from_utf8(&v).unwrap());
+        let mut vv = v.clone();
+        vv.push( 'f' as u8 );
+        s.send(vv).unwrap();
     };   
 
-    let final_confi = node_builder.set_simple_controller_mut(simple)
+    let final_confi = node_builder.set_simple_controller_mut(counter)
                 .set_label_controller(default)
                 .add_label_handler("duplicate".to_string(),duplicate )
                 .add_label_handler("upper".to_string(), upper)
                 .build(2);
     
+    let text = "Hello world";
+    let mut results = Vec::new();
     
-    final_confi.send( "ola mundo".as_bytes().to_vec(), "localhost:11103".to_string());
-    final_confi.send( "Eu sou o quim".as_bytes().to_vec(), "localhost:11103".to_string());
-    final_confi.send( "isto devia dar".as_bytes().to_vec(), "localhost:11103".to_string());
-    
-    thread::sleep(time::Duration::from_millis(100));
+    for i in 0..4{
+        let message = format!("{}{}", text,i).as_bytes().to_vec();
+        results.push( format!("{}{}{}{}{}{}f", i, text.to_uppercase(),i, i, text.to_uppercase(),i) ) ;
+        final_confi.send( message  , "localhost:11103".to_string());
+    }
+
+    for _i in 0..4{ 
+        let s = String::from_utf8( r.recv().unwrap()).unwrap();
+        assert!( results.contains( &s) );
+    }   
 }
 
 #[test]
 fn test_mut_label(){
 
-    let mut x1 = 0;
-    let h = move |_v:Vec<u8>|{ x1 += 1; println!("x = {}", x1) };    
+    let (s,r) = unbounded();
 
-    let config = Builder::new(3031)
-                        .set_label_controller_mut( |_v : Vec<u8>| {println!("Erro");})
-                        .add_label_handler_mut("label2".to_string(), h)
-                        .build(1);
-    
-    config.send_with_label( "ola".as_bytes().to_vec(), "label2".to_string(), "localhost:3031".to_string());
-    config.send_with_label( "ola".as_bytes().to_vec(), "label2".to_string(), "localhost:3031".to_string());
-    config.send_with_label( "ola".as_bytes().to_vec(), "label2".to_string(), "localhost:3031".to_string());
-    config.send_with_label( "ola".as_bytes().to_vec(), "label2".to_string(), "localhost:3031".to_string());
-    config.send_with_label( "ola".as_bytes().to_vec(), "label2".to_string(), "localhost:3031".to_string());
+    let mut my_string = String::new();
 
-    thread::sleep(time::Duration::from_millis(2000));
-}
-
-#[test]
-fn test_crossbeam_select(){
-    let (s1,r1) = unbounded();
-    let (s2,r2) = unbounded();
-    
-
-    thread::spawn(move || { 
-
-        // Build a list of operations.
-        let mut sel = Select::new();
+    let h = move | v:Vec<u8> |{ 
         
-        sel.recv(&r1);
-        sel.recv(&r2);
-        
-
-        loop{
-            let index = sel.ready();
-            match index {
-                0 =>{
-                    let res = r1.try_recv();
-                    if let Err(e) = res {
-                        if e.is_empty() {
-                            continue;
-                        }
-                    }
-                    println!("{}", res.map_err(|_| RecvError).unwrap());
-                },
-                1 => {
-                    let res = r2.try_recv();
-                    if let Err(e) = res {
-                        if e.is_empty() {
-                            continue;
-                        }
-                    }
-                    println!("{}", res.map_err(|_| RecvError).unwrap());
-                },
-                _ => {
-                    println!("Error");
-                },
-            }
+        if v.len() == 0{
+            s.send( my_string.clone()).unwrap();
+        } else {
+            my_string.push_str( &String::from_utf8(v).unwrap() );
         }
-    });
+    };
+        
+    Builder::new(3331)
+                    .set_label_controller_mut( | _v : Vec<u8>| { assert!(false) } )
+                    .add_label_handler_mut("label".to_string(), h)
+                    .build(1);
+
+    let config = Builder::new(3332).build(0);
+
+    let text = "hello";
     
+    let num = 4;
 
-    s1.send("ola").unwrap();
-    thread::sleep(time::Duration::from_millis(1000));
-    s2.send(1).unwrap();
-    s1.send("lindo").unwrap();
-    s1.send("lindo").unwrap();
-    s1.send("lindo").unwrap();
-    s1.send("lindo").unwrap();
+    for _i in 0..num {
+        config.send_with_label( text.as_bytes().to_vec(), "label".to_string(), "localhost:3331".to_string());
+    }
 
-    thread::sleep(time::Duration::from_millis(1000));
+    config.send_with_label( Vec::new(), "label".to_string(), "localhost:3331".to_string());
+
+    assert_eq!( "hello".repeat(num),  r.recv().unwrap() );
 }
