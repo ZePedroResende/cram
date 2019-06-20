@@ -22,12 +22,17 @@ impl Simple {
     }
 
     pub fn start(self, s : Sender<ThreadMessage>){
-        thread::spawn(move || {
-            loop{
-                let vec = self.input_channel.recv().unwrap();
-                let th_message = ThreadMessage::new_with_stateless(self.handler.clone(), vec );
-                s.send(th_message).unwrap();
-            }    
+        thread::spawn(move || loop {
+            
+            let vec;    
+            match self.input_channel.recv() {
+                Ok(val) => vec = val,
+                Err(_e) => break,
+            }
+
+            let th_message = ThreadMessage::new_with_stateless(self.handler.clone(), vec );
+            s.send(th_message).unwrap();
+            
         });
     }
 }

@@ -26,6 +26,8 @@ impl Label {
             fn_sender : s,
             
             queue_by_label : HashMap::new(),
+            pending : 0,
+            stoped : false,
         }
     }
     
@@ -49,8 +51,7 @@ impl Label {
             sel.recv( &input_channel_cloned);
 
             loop{
-                let index = sel.ready();
-                match index {
+                match sel.ready() {
                     0 => {
                         // From threadPool
                         let res = self.fn_receiver.try_recv();
@@ -59,14 +60,27 @@ impl Label {
                         }
                         let (option_label, f) = res.unwrap();
                         self.receive_handler(thread_pool_channel.clone(), option_label, f);
+                        if self.stoped && self.pending == 0{
+                            return ;
+                        }
                     },
-                    1 => {
+                    _ => {
                         // From outside 
                         let res = self.input_channel.try_recv();
                         if let Err(e) = res {
-                            if e.is_empty() { continue; }
-                        }
-                        let vec = res.unwrap();
+                            if e.is_empty() { 
+                                continue; 
+                            }else{
+                                self.stoped = true;
+                                if self.pending == 0{
+                                    return;
+                                } 
+                                    
+                            }
+                        };
+    
+                        let vec = res.unwrap();  
+                        
                         let (label,msg) = deserialize_label_message(vec);
 
                         match self.map.remove(&label) {
@@ -78,6 +92,7 @@ impl Label {
                                     }
                                     None =>{
                                         self.queue_by_label.get_mut(&None).unwrap().queue(msg).unwrap();
+                                        self.pending += 1;
                                     }
                                 }
                             },
@@ -89,20 +104,20 @@ impl Label {
                                     },
                                     None =>{
                                         self.map.insert( label.clone(), None);  
-                                        self.queue_by_label.get_mut(&Some(label)).unwrap().queue( msg ).unwrap();                        
+                                        self.queue_by_label.get_mut(&Some(label)).unwrap().queue( msg ).unwrap();
+                                        self.pending += 1;                        
                                     }
                                 }
                             },
-                    
                         };
                     },
-                    _ => panic!("Erro - index not expected"),
                 }            
             }
         });
     }
 
     fn receive_handler(&mut self , thread_pool_channel : Sender<ThreadMessage>, option_label : Option<String>, fun : Box<FnMut(Vec<u8>) + Send + Sync + 'static>){
+
         let optional_vec = self.queue_by_label.get_mut(&option_label).unwrap().dequeue();
 
         match option_label {
@@ -110,16 +125,20 @@ impl Label {
                 match optional_vec {
                     None => 
                         self.default_fun = Some(fun),
-                    Some(vec) =>
-                        thread_pool_channel.send( ThreadMessage::new_with_stateful(fun, vec, None, self.fn_sender.clone())).unwrap(),
+                    Some(vec) =>{
+                        thread_pool_channel.send( ThreadMessage::new_with_stateful(fun, vec, None, self.fn_sender.clone())).unwrap();
+                        self.pending -= 1;
+                    }
                 },
             Some(label) =>{
                 match optional_vec{
                     None =>{
                         self.map.insert( label, Some(fun));
                     },
-                    Some(vec) =>
-                        thread_pool_channel.send( ThreadMessage::new_with_stateful(fun, vec, Some(label), self.fn_sender.clone())).unwrap(),
+                    Some(vec) =>{
+                        thread_pool_channel.send( ThreadMessage::new_with_stateful(fun, vec, Some(label), self.fn_sender.clone())).unwrap();
+                        self.pending -= 1;
+                    }
                 }
             }
         }
