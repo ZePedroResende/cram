@@ -30,7 +30,12 @@ impl Label {
 
         thread::spawn(move || loop {
 
-            let vec =  self.input_channel.recv().unwrap();
+            let vec;
+            
+            match self.input_channel.recv() {
+                Ok(val) => vec = val,
+                Err(_e) => break,
+            }
 
             let (label,msg) = deserialize_label_message(vec);
             

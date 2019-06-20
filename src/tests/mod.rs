@@ -2,6 +2,7 @@
 
 use crate::serializers::*;
 use crate::node::{Builder};
+
 use crossbeam::crossbeam_channel::unbounded;
 
 #[test]
@@ -181,21 +182,22 @@ fn test_mut_label(){
     };
         
     Builder::new(3331)
-                    .set_label_controller_mut( | _v : Vec<u8>| { assert!(false) } )
-                    .add_label_handler_mut("label".to_string(), h)
-                    .build(1);
+            .set_label_controller_mut( | _v : Vec<u8>| { assert!(false) } )
+            .add_label_handler_mut("label".to_string(), h)
+            .build(1);
 
     let config = Builder::new(3332).build(0);
 
     let text = "hello";
-    
+        
     let num = 4;
 
     for _i in 0..num {
         config.send_with_label( text.as_bytes().to_vec(), "label".to_string(), "localhost:3331".to_string());
     }
-
+    
     config.send_with_label( Vec::new(), "label".to_string(), "localhost:3331".to_string());
 
-    assert_eq!( "hello".repeat(num),  r.recv().unwrap() );
+    assert_eq!( "hello".repeat(num) , r.recv().unwrap() );    
+
 }

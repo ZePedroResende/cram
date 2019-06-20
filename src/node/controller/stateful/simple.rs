@@ -17,11 +17,13 @@ impl Simple {
     }
 
     pub fn start(mut self){
-        thread::spawn(move || {
-            loop{
-                let vec = self.input_channel.recv().unwrap();
-                (self.handler)(vec);
-            }    
+        thread::spawn(move || loop {
+            let vec;  
+            match self.input_channel.recv() {
+                Ok(val) => vec = val,
+                Err(_e) => break,
+            }
+            (self.handler)(vec);    
         });
     }
 }

@@ -21,6 +21,9 @@ pub struct Label {
 
     queue_by_label : HashMap< Option<String>, Queue< Vec<u8> > >,
 
+    pending : i32,
+    
+    stoped : bool,
 }
 
 pub struct Simple {

@@ -1,3 +1,3 @@
 pub mod node;
-pub mod serializers;
+mod serializers;
 mod tests;

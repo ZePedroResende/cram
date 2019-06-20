@@ -38,15 +38,18 @@ impl Io {
 
     pub fn start(mut self, node : Node){
 
-        let context = zmq::Context::new();
+        let mut context = zmq::Context::new();
                 
         let pull_socket = context.socket(zmq::PULL).unwrap();
-        
         pull_socket.bind(&format!("tcp://*:{}", self.port)).unwrap();
         
-        let _read_thread = thread::spawn(move || loop {
-
-            let mut vec = pull_socket.recv_msg(0).unwrap().to_vec();
+        let _read_from_sck = thread::spawn(move || loop {
+            
+            let mut vec;  
+            match pull_socket.recv_bytes(0) {
+                Ok(val) => vec = val,
+                Err(_e) => break,
+            }
 
             let message_type = get_type(&mut vec);
             
@@ -56,13 +59,25 @@ impl Io {
             };
         });
 
-        let _write_thread = thread::spawn(move || {
+        let _write_to_sck = thread::spawn(move || {
             
             let mut push_sockets : HashMap<String, zmq::Socket> = HashMap::new();
 
             loop {
-                let (controller_type, mut vec, mut to) = self.input_channel.recv().unwrap();
-
+                
+                let (controller_type, mut vec, mut to);
+                match self.input_channel.recv() {
+                    Ok( (v1,v2,v3) ) => {
+                        controller_type = v1;
+                        vec = v2;
+                        to = v3;
+                    }
+                    Err(_e) => {
+                        context.destroy().unwrap();
+                        break;
+                    }
+                }
+            
                 put_type( controller_type, &mut vec);
 
                 self.option_dns = match self.option_dns{
